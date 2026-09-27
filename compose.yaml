@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: pharmacy_saas
+      POSTGRES_USER: pharmacy
+      POSTGRES_PASSWORD: pharmacy_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pharmacy_db:/var/lib/postgresql/data
+      - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+volumes:
+  pharmacy_db:

@@ -1,0 +1,16 @@
+**/node_modules/
+**/dist/
+**/.angular/
+**/bin/
+**/obj/
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+*.db
+*.db-wal
+*.db-shm
