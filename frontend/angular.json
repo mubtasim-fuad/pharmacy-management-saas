@@ -12,6 +12,7 @@
             "browser": "src/main.ts",
             "index": "src/index.html",
             "tsConfig": "tsconfig.json",
+            "assets": [{ "glob": "**/*", "input": "public" }],
             "styles": [
               "src/styles.css"
             ]

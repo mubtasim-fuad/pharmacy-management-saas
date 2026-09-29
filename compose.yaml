@@ -10,5 +10,6 @@ services:
     volumes:
       - pharmacy_db:/var/lib/postgresql/data
       - ./database/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/002_transactions_and_accounts.sql:/docker-entrypoint-initdb.d/002_transactions_and_accounts.sql:ro
 volumes:
   pharmacy_db:

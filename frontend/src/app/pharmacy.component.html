@@ -1,11 +1,88 @@
-<header class="topbar"><div class="wrap"><div class="brand"><span class="brand-mark">+</span><div><strong>Pharmacy Management</strong><small>Inventory MVP · Bangladesh</small></div></div><span class="status">{{ demoMode() ? 'Demo preview' : 'Connected to API' }}</span></div></header>
-<main class="wrap">
-  <section class="hero"><div><p class="eyebrow">INVENTORY WORKSPACE</p><h1>Medicine stock, at a glance.</h1><p>Manage medicines and catch low stock early. This project is under active development.</p></div></section>
-  @if (demoMode()) { <div class="notice" role="status">Showing sample data. Start the API and PostgreSQL to save changes.</div> }
-  @if (error()) { <div class="notice error" role="alert">{{ error() }}</div> }
-  <section class="stats" aria-label="Inventory summary"><div class="stat"><span>Medicines</span><strong>{{ medicines().length }}</strong></div><div class="stat"><span>Units in stock</span><strong>{{ totalStock() }}</strong></div><div class="stat"><span>Low or out of stock</span><strong>{{ lowStock() }}</strong></div></section>
-  <section class="content"><div class="panel inventory"><div class="panel-head"><div><p class="eyebrow">CATALOG</p><h2>Medicines</h2></div><label class="search">Search <input type="search" placeholder="Find a medicine" (input)="search($event)" /></label></div>
-    <div class="rows">@for (medicine of filtered(); track medicine.id) { <article class="row"><div><strong>{{ medicine.name }}</strong><span class="stock" [class.low]="medicine.stock < 5">{{ medicine.stock }} units @if (medicine.stock < 5) { · Low stock }</span></div><button type="button" (click)="sell(medicine.id)" [disabled]="medicine.stock === 0">Sell one</button></article> } @empty { <p class="empty">No matching medicines.</p> }</div>
-  </div><div class="panel add"><p class="eyebrow">NEW ITEM</p><h2>Add medicine</h2><p>Enter a name and starting stock quantity.</p><form [formGroup]="form" (ngSubmit)="addMedicine()"><label for="name">Medicine name</label><input id="name" formControlName="name" placeholder="e.g. Paracetamol" maxlength="160" /><label for="stock">Stock quantity</label><input id="stock" type="number" min="0" step="1" formControlName="stock" /><button class="primary" type="submit" [disabled]="form.invalid">Add medicine</button></form></div></section>
-  <footer>Inventory is the first project slice. Sales, purchasing, reports and alerts are planned.</footer>
-</main>
+@if (mode() === 'none') {
+  <main class="welcome">
+    <div class="welcome-info">
+      <div class="logo"><span class="logo-mark">✚</span><strong>MedLedger</strong></div>
+      <div class="welcome-copy"><p class="eyebrow light">PHARMACY OPERATIONS</p><h1>Every item accounted for.</h1><p>Keep medicine stock, purchasing and sales in one clear workspace.</p></div>
+      <div class="welcome-steps"><span>01 &nbsp; Add medicines</span><span>02 &nbsp; Receive stock</span><span>03 &nbsp; Record sales</span></div>
+      <small>Portfolio MVP · Built with Angular, ASP.NET Core and PostgreSQL</small>
+    </div>
+    <div class="welcome-form">
+      <div class="auth-card"><p class="eyebrow">EXPLORE THE WORKSPACE</p><h2>Pharmacy management, simplified.</h2>
+        <p>Open an interactive sample pharmacy. Demo changes stay in this browser and can be reset at any time.</p>
+        <button class="primary wide" type="button" (click)="startDemo()">Open interactive demo</button>
+        @if (apiAvailable) {
+          <div class="divider"><span>or use your own workspace</span></div>
+          <div class="auth-tabs"><button type="button" [class.selected]="authTab() === 'login'" (click)="authTab.set('login'); error.set('')">Sign in</button><button type="button" [class.selected]="authTab() === 'register'" (click)="authTab.set('register'); error.set('')">Create pharmacy</button></div>
+          <form [formGroup]="authForm" (ngSubmit)="submitAuth()">
+            @if (authTab() === 'register') { <label>Pharmacy name<input formControlName="pharmacyName" maxlength="160" autocomplete="organization" required></label> }
+            <label>Email<input type="email" formControlName="email" autocomplete="email" required></label>
+            <label>Password<input type="password" formControlName="password" [attr.autocomplete]="authTab() === 'login' ? 'current-password' : 'new-password'" required></label>
+            @if (authTab() === 'register') { <small>Use at least 12 characters.</small> }
+            <button class="secondary wide" type="submit" [disabled]="authForm.invalid || busy()">{{ busy() ? 'Please wait…' : authTab() === 'login' ? 'Sign in' : 'Create workspace' }}</button>
+          </form>
+        }
+        @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
+      </div>
+      <p class="disclaimer">For demonstration and portfolio use. Do not enter patient information.</p>
+    </div>
+  </main>
+} @else {
+  <div class="shell">
+    <aside class="sidebar"><div class="logo"><span class="logo-mark">✚</span><strong>MedLedger</strong></div>
+      <div class="workspace-name"><small>WORKSPACE</small><strong>{{ pharmacyName() }}</strong><span>{{ mode() === 'demo' ? 'Browser demo' : email() }}</span></div>
+      <nav aria-label="Main navigation">
+        <button type="button" [class.active]="view() === 'overview'" (click)="show('overview')"><span>◫</span> Overview</button>
+        <button type="button" [class.active]="view() === 'medicines'" (click)="show('medicines')"><span>▦</span> Medicines</button>
+        <button type="button" [class.active]="view() === 'purchase'" (click)="show('purchase')"><span>↓</span> Purchasing</button>
+        <button type="button" [class.active]="view() === 'sales'" (click)="show('sales')"><span>↑</span> Sales</button>
+        <button type="button" [class.active]="view() === 'reports'" (click)="show('reports')"><span>▥</span> Reports</button>
+      </nav>
+      <div class="side-footer"><span class="mode-dot"></span>{{ mode() === 'demo' ? 'Local sample data' : 'Connected workspace' }}<button type="button" (click)="signOut()">{{ mode() === 'demo' ? 'Exit demo' : 'Sign out' }}</button></div>
+    </aside>
+    <div class="main-area"><header class="topbar"><div><span class="crumb">PHARMACY / {{ view().toUpperCase() }}</span><h1>@switch (view()) { @case ('overview') { Overview } @case ('medicines') { Medicines } @case ('purchase') { Purchasing } @case ('sales') { Sales } @case ('reports') { Reports } }</h1></div><span class="date">{{ date(today) }}</span><button class="mobile-exit text-button" type="button" (click)="signOut()">{{ mode() === 'demo' ? 'Exit demo' : 'Sign out' }}</button></header>
+      <main class="main-content">
+        @if (mode() === 'demo') { <div class="demo-banner" role="status"><strong>Interactive demo</strong><span>Changes are saved only in this browser. Do not enter real pharmacy or patient data.</span><button type="button" (click)="resetDemo()">Reset sample</button></div> }
+        @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
+        @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
+
+        @if (view() === 'overview') {
+          <div class="section-intro"><div><p class="eyebrow">AT A GLANCE</p><h2>Your pharmacy today</h2><p>Stock and activity across your workspace.</p></div><button class="primary" type="button" (click)="show('sales')">Record a sale</button></div>
+          <section class="stats" aria-label="Pharmacy summary"><div class="stat"><span>Medicines</span><strong>{{ medicines().length }}</strong><small>Products in catalog</small></div><div class="stat"><span>Units in stock</span><strong>{{ totalStock() }}</strong><small>Across all medicines</small></div><div class="stat warning"><span>Need attention</span><strong>{{ lowItems().length }}</strong><small>At or below reorder level</small></div><div class="stat"><span>Revenue · {{ reportDays() }} days</span><strong>{{ money(report()?.revenue || 0) }}</strong><small>{{ report()?.salesCount || 0 }} recorded sales</small></div></section>
+          <div class="two-column"><section class="card"><div class="card-heading"><div><p class="eyebrow">STOCK WATCH</p><h3>Reorder soon</h3></div><button class="text-button" type="button" (click)="show('medicines')">View catalog</button></div>
+            @for (m of lowItems().slice(0, 5); track m.id) { <div class="list-row"><div><strong>{{ m.name }}</strong><small>{{ m.sku || 'No SKU' }} · Reorder at {{ m.reorderLevel }}</small></div><span class="badge" [class.out]="m.stock === 0">{{ m.stock === 0 ? 'Out of stock' : m.stock + ' left' }}</span></div> } @empty { <p class="empty">No low stock items. Your shelves are looking good.</p> }
+          </section><section class="card"><div class="card-heading"><div><p class="eyebrow">ACTIVITY</p><h3>Recent transactions</h3></div><button class="text-button" type="button" (click)="show('reports')">View reports</button></div>
+            @for (item of recent(); track item.kind + item.id) { <div class="list-row"><div><strong>{{ item.kind }} #{{ item.id }}</strong><small>{{ item.title }} · {{ date(item.date) }}</small></div><span class="amount" [class.income]="item.kind === 'Sale'">{{ item.kind === 'Sale' ? '+' : '−' }}{{ money(item.total) }}</span></div> } @empty { <p class="empty">No transactions yet. Record a purchase to add stock, then make your first sale.</p> }
+          </section></div>
+        }
+
+        @if (view() === 'medicines') {
+          <div class="section-intro"><div><p class="eyebrow">INVENTORY</p><h2>Medicine catalog</h2><p>Add medicines, set prices and monitor reorder points.</p></div></div>
+          <div class="content-grid"><section class="card catalog"><div class="card-heading"><h3>Products <span class="count">{{ medicines().length }}</span></h3><label class="search-label">Search medicines<input type="search" placeholder="Name or SKU" (input)="search($event)"></label></div>
+            <div class="table-scroll"><table><thead><tr><th>Medicine</th><th>Stock</th><th>Sell price</th><th></th></tr></thead><tbody>@for (m of filtered(); track m.id) { <tr><td><strong>{{ m.name }}</strong><small>{{ m.sku || 'No SKU' }}</small></td><td><span class="badge" [class.out]="m.stock === 0" [class.ok]="m.stock > m.reorderLevel">{{ m.stock }} units</span></td><td>{{ money(m.salePrice) }}</td><td><button class="text-button" type="button" (click)="edit(m)">Edit</button></td></tr> } @empty { <tr><td colspan="4" class="empty">No matching medicines.</td></tr> }</tbody></table></div>
+          </section><section class="card form-card"><p class="eyebrow">{{ editingId() === null ? 'NEW PRODUCT' : 'UPDATE PRODUCT' }}</p><h3>{{ editingId() === null ? 'Add medicine' : 'Edit medicine' }}</h3><p>New products start with zero stock. Record a purchase to receive units.</p>
+            <form [formGroup]="medicineForm" (ngSubmit)="saveMedicine()"><label>Medicine name<input formControlName="name" placeholder="e.g. Paracetamol 500 mg" maxlength="160" required></label><label>SKU <span class="optional">Optional</span><input formControlName="sku" placeholder="e.g. MED-101" maxlength="64"></label><div class="form-pair"><label>Selling price (৳)<input type="number" min="0" step="0.01" formControlName="salePrice" required></label><label>Reorder at<input type="number" min="0" step="1" formControlName="reorderLevel" required></label></div><button class="primary wide" type="submit" [disabled]="medicineForm.invalid || busy()">{{ editingId() === null ? 'Add medicine' : 'Save changes' }}</button>@if (editingId() !== null) { <button class="secondary wide" type="button" (click)="cancelEdit()">Cancel edit</button> }</form>
+          </section></div>
+        }
+
+        @if (view() === 'purchase') {
+          <div class="section-intro"><div><p class="eyebrow">STOCK IN</p><h2>Receive a purchase</h2><p>Record supplier cost and increase available stock.</p></div></div>
+          <div class="content-grid"><section class="card form-card"><h3>New purchase</h3><form [formGroup]="purchaseForm" (ngSubmit)="savePurchase()"><label>Supplier<input formControlName="supplier" placeholder="Supplier name (optional)" maxlength="160"></label><label>Medicine<select formControlName="medicineId" required><option [value]="0">Select a medicine</option>@for (m of medicines(); track m.id) { <option [value]="m.id">{{ m.name }} · {{ m.stock }} in stock</option> }</select></label><div class="form-pair"><label>Quantity<input type="number" min="1" step="1" formControlName="quantity" required></label><label>Cost per unit (৳)<input type="number" min="0" step="0.01" formControlName="unitCost" required></label></div><div class="form-total"><span>Purchase total</span><strong>{{ money(purchaseForm.controls.quantity.value * purchaseForm.controls.unitCost.value) }}</strong></div><button class="primary wide" type="submit" [disabled]="purchaseForm.invalid || busy() || medicines().length === 0">Record purchase</button></form>@if (medicines().length === 0) { <p class="hint">Add a medicine to the catalog first.</p> }</section>
+            <section class="card"><div class="card-heading"><div><p class="eyebrow">HISTORY</p><h3>Recent purchases</h3></div></div>@for (p of purchases().slice(0, 12); track p.id) { <div class="list-row"><div><strong>#{{ p.id }} · {{ p.supplier }}</strong><small>{{ date(p.createdAtUtc) }} · {{ p.items[0]?.quantity }} × {{ p.items[0]?.medicineName }}</small></div><strong>{{ money(p.total) }}</strong></div> } @empty { <p class="empty">No purchases recorded yet.</p> }</section></div>
+        }
+
+        @if (view() === 'sales') {
+          <div class="section-intro"><div><p class="eyebrow">STOCK OUT</p><h2>Record a sale</h2><p>Sell available units and keep a transaction record.</p></div></div>
+          <div class="content-grid"><section class="card form-card"><h3>New sale</h3><form [formGroup]="saleForm" (ngSubmit)="saveSale()"><label>Customer<input formControlName="customer" placeholder="Walk-in (optional)" maxlength="160"></label><label>Medicine<select formControlName="medicineId" required><option [value]="0">Select an in-stock medicine</option>@for (m of medicines(); track m.id) { <option [value]="m.id" [disabled]="m.stock === 0">{{ m.name }} · {{ m.stock }} available</option> }</select></label><label>Quantity<input type="number" min="1" step="1" formControlName="quantity" required></label>@if (saleChoice(); as m) { <p class="available">Available: {{ m.stock }} units · {{ money(m.salePrice) }} each</p> }<div class="form-total"><span>Sale total</span><strong>{{ money((saleChoice()?.salePrice || 0) * saleForm.controls.quantity.value) }}</strong></div><button class="primary wide" type="submit" [disabled]="saleForm.invalid || busy() || !saleChoice() || (saleChoice()?.stock || 0) < saleForm.controls.quantity.value">Complete sale</button></form></section>
+            <section class="card"><div class="card-heading"><div><p class="eyebrow">HISTORY</p><h3>Recent sales</h3></div></div>@for (s of sales().slice(0, 12); track s.id) { <div class="list-row"><div><strong>#{{ s.id }} · {{ s.customer }}</strong><small>{{ date(s.createdAtUtc) }} · {{ s.items[0]?.quantity }} × {{ s.items[0]?.medicineName }}</small></div><strong class="income">{{ money(s.total) }}</strong></div> } @empty { <p class="empty">No sales recorded yet.</p> }</section></div>
+        }
+
+        @if (view() === 'reports') {
+          <div class="section-intro"><div><p class="eyebrow">PERFORMANCE</p><h2>Reports</h2><p>Sales, purchasing and inventory value at a glance.</p></div><label class="period">Period<select [value]="reportDays()" (change)="chooseDays($event)"><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label></div>
+          <section class="stats report-stats"><div class="stat"><span>Sales revenue</span><strong>{{ money(report()?.revenue || 0) }}</strong><small>{{ report()?.salesCount || 0 }} sales</small></div><div class="stat"><span>Purchase spend</span><strong>{{ money(report()?.purchasesTotal || 0) }}</strong><small>Recorded purchases</small></div><div class="stat"><span>Gross margin estimate</span><strong>{{ money((report()?.revenue || 0) - (report()?.costOfGoods || 0)) }}</strong><small>Revenue minus recorded unit costs</small></div><div class="stat"><span>Stock at cost</span><strong>{{ money(report()?.stockValue || 0) }}</strong><small>{{ report()?.unitsInStock || 0 }} units available</small></div></section>
+          <div class="two-column"><section class="card"><p class="eyebrow">STOCK HEALTH</p><h3>{{ report()?.lowStock || 0 }} medicines need attention</h3><p class="muted">Reorder alerts use each medicine’s own threshold. A product with zero stock is included.</p><button class="secondary" type="button" (click)="show('medicines')">Review medicines</button></section><section class="card"><p class="eyebrow">HOW THIS IS CALCULATED</p><h3>Clear numbers, useful decisions</h3><p class="muted">Revenue and purchases use the selected period. Stock value uses the latest purchase cost per medicine. Gross margin uses recorded costs at the time of sale in the API.</p></section></div>
+        }
+        <footer>MedLedger · Pharmacy Management SaaS portfolio MVP · Bangladesh · {{ mode() === 'demo' ? 'Local demo' : 'Private pharmacy workspace' }}</footer>
+      </main>
+    </div>
+  </div>
+}

@@ -1,75 +1,84 @@
-# Pharmacy Management SaaS — Inventory MVP
+# MedLedger — Pharmacy Management SaaS
 
-An in-progress Angular + ASP.NET Core project for pharmacy workflows in Bangladesh. This repository currently demonstrates a **medicine inventory slice**: list and search medicines, add stock entries, show low-stock counts, and record a one-unit sale with an atomic database decrement.
+A portfolio MVP for a small pharmacy in Bangladesh. The Angular interface supports a browser-only interactive demo; the ASP.NET Core API and PostgreSQL schema support separate pharmacy accounts with persistent records. **The demo is sample data, not a connected pharmacy service.** Do not enter patient or real business information in it.
 
-The frontend grew from my Angular learning exercise and was upgraded to Angular 22. It can run in an explicitly labeled sample-data mode when the API is offline; those changes reset on refresh. With the API and PostgreSQL running, changes persist. This is a development portfolio project, not a deployed pharmacy product.
+## What works
 
-There is no verified screenshot of this version yet. `screenshots/` records what to capture after running the UI.
+- Create a pharmacy account and sign in when the API is configured. Bearer tokens expire after eight hours; every catalog, transaction and report query is scoped to the account's pharmacy.
+- Add and edit medicines, SKU, selling price and reorder threshold. A new medicine begins with zero stock.
+- Record a purchase with supplier, quantity and unit cost. The transaction increases stock and captures the purchase total.
+- Record a sale with customer, quantity and the price and cost at the time of sale. An atomic conditional update prevents negative stock. The entire transaction rolls back if any line fails.
+- See low stock alerts, recent transactions and reports for 7, 30 or 90 days.
+- Explore those flows in the live frontend without an account. Demo changes persist only in the current browser and can be reset.
 
-**Live demo:** not deployed yet. Run the frontend locally for a demo preview.
+The API supports up to 50 distinct lines per sale or purchase; the current UI submits one medicine per transaction. This is a portfolio MVP, not a production pharmacy system: it has no batch/expiry tracking, invoice numbering, VAT handling, email verification, password recovery, payment integration, or audit trail for user actions. The demo should not be used for regulated dispensing.
 
-## Stack and current scope
+| Layer | Stack |
+| --- | --- |
+| Web | Angular 22, TypeScript, signals, reactive forms |
+| API | ASP.NET Core 10, EF Core, JWT authentication |
+| Database | PostgreSQL 17 |
+| CI | GitHub Actions: Angular and .NET builds plus account/stock smoke test |
 
-| Part | Technology | Implemented |
+## Run the full stack locally
+
+Requirements: Node.js 24, .NET 10 SDK, Docker Compose (or PostgreSQL 17).
+
+```bash
+docker compose up -d db
+cd backend
+export ConnectionStrings__PharmacyDatabase='Host=localhost;Port=5432;Database=pharmacy_saas;Username=pharmacy;Password=pharmacy_dev'
+export JWT__Key='replace-this-with-a-long-random-secret-at-least-32-characters'
+export Cors__AllowedOrigins='http://localhost:4200'
+dotnet run
+```
+
+In another terminal:
+
+```bash
+cd frontend
+npm ci
+npm start
+```
+
+Open `http://localhost:4200`. Choose **Create pharmacy** to use the persistent API or **Open interactive demo** for sample data. Health endpoint: `http://localhost:5075/health`. For PowerShell, replace `export KEY=value` with `$env:KEY='value'`.
+
+The Docker entrypoint runs `001_initial.sql` and `002_transactions_and_accounts.sql` on a **new** database volume. If you already created a volume from the earlier inventory MVP, run the upgrade manually from the repository root: `PGPASSWORD=pharmacy_dev psql -h localhost -U pharmacy -d pharmacy_saas -f database/002_transactions_and_accounts.sql`. See [database/README.md](database/README.md) for existing records.
+
+## API routes
+
+| Method | Route | Purpose |
 | --- | --- | --- |
-| Frontend | Angular 22, TypeScript, signals, reactive forms, HTTP | Catalog, search, stock summary, add medicine, sell one |
-| API | ASP.NET Core 10, C#, EF Core | List, create, atomic stock decrement |
-| Database | PostgreSQL | `medicines` table and versioned initial SQL script |
+| POST | `/api/auth/register`, `/api/auth/login` | Pharmacy account and token |
+| GET, POST | `/api/medicines` | Catalog (protected) |
+| PUT | `/api/medicines/{id}` | Edit product information (protected) |
+| GET, POST | `/api/purchases` | Recent purchases / receive stock (protected) |
+| GET, POST | `/api/sales` | Recent sales / deduct stock (protected) |
+| GET | `/api/reports/summary?days=30` | Period totals and inventory health (protected) |
+| GET | `/health` | Database connectivity |
 
-**Planned:** purchasing, complete sales transactions, expiry and batch tracking, authentication, multi-tenant isolation, reports, and alerts. The current `sell one` action changes inventory only; it does not create a sale invoice or transaction record.
+Requests to protected routes need `Authorization: Bearer <token>`. Example payloads:
 
-## Run locally
+```json
+{"name":"Paracetamol 500 mg","sku":"P500","salePrice":5.00,"reorderLevel":10}
+{"supplier":"Supplier A","items":[{"medicineId":1,"quantity":20,"unitCost":3.00}]}
+{"customer":"Walk-in","items":[{"medicineId":1,"quantity":2}]}
+```
 
-Requirements: Node.js compatible with Angular 22, .NET 10 SDK, Docker with Compose (or a local PostgreSQL instance).
+## Deploy
 
-1. From the repository root, start PostgreSQL:
+The static Angular frontend and the Dockerized .NET API are separate services. The frontend can be deployed on Vercel with **Root Directory `frontend`**; its `vercel.json` sets the build and output paths. With `frontend/public/config.js` left empty, the site is an explicitly labeled browser demo.
 
-   ```bash
-   docker compose up -d db
-   ```
+To enable real accounts, provision PostgreSQL and a host that runs `backend/Dockerfile` with the **repository root** as Docker build context. Apply `database/001_initial.sql`, then `database/002_transactions_and_accounts.sql` once to the database. Set `ConnectionStrings__PharmacyDatabase`, a random `JWT__Key` of at least 32 bytes, and `Cors__AllowedOrigins=https://YOUR-FRONTEND-DOMAIN`. Use TLS for both services. Replace `window.PHARMACY_API_URL` in `frontend/public/config.js` with the HTTPS API origin (no trailing slash) and redeploy the frontend. Never put database credentials or the JWT signing key in the frontend or repository.
 
-   A fresh Docker volume runs `database/001_initial.sql` once. For an existing local PostgreSQL database, create `pharmacy_saas` and run that SQL file manually.
-
-2. In a separate terminal, set the **local demo** connection string and start the API:
-
-   ```bash
-   cd backend
-   export ConnectionStrings__PharmacyDatabase='Host=localhost;Port=5432;Database=pharmacy_saas;Username=pharmacy;Password=pharmacy_dev'
-   dotnet run
-   ```
-
-   On PowerShell, set `$env:ConnectionStrings__PharmacyDatabase = 'Host=localhost;Port=5432;Database=pharmacy_saas;Username=pharmacy;Password=pharmacy_dev'` before `dotnet run`. API base URL: `http://localhost:5075`.
-
-3. In another terminal, start Angular:
-
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
-
-   Open `http://localhost:4200`. The status pill should say **Connected to API**. If it says **Demo preview**, the app is showing local sample records and will not persist changes. Refresh after starting the API.
-
-## API
-
-| Method | Path | Result |
-| --- | --- | --- |
-| GET | `/api/medicines` | Medicine list |
-| GET | `/api/medicines/{id}` | One medicine |
-| POST | `/api/medicines` | Add `{ "name": "Paracetamol", "stock": 12 }` |
-| PATCH | `/api/medicines/{id}/sell` | Decrement stock by one, or reject when empty |
-| GET | `/health` | Process health |
-
-The local Docker password in `compose.yaml` is only for development. Configure a separate secret and tighten CORS/authentication before any real deployment.
+The CI workflow builds both layers and exercises tenant isolation, a purchase, a sale, an insufficient stock rollback and report totals against disposable PostgreSQL. The frontend build can be run locally with `npm ci && npm run build` from `frontend/`.
 
 ## Repository layout
 
-- `frontend/` — Angular application
-- `backend/` — ASP.NET Core API and EF Core model
-- `database/` — initial PostgreSQL schema script
-- `screenshots/` — local UI capture when available
-- `compose.yaml` — local PostgreSQL setup
+- `frontend/` — Angular app and Vercel configuration
+- `backend/` — ASP.NET Core API and Dockerfile
+- `database/` — versioned PostgreSQL scripts
+- `scripts/smoke_test.py` — API integration smoke test used by CI
+- `screenshots/` — interface screenshots
 
-## Project status
-
-In progress. This repository includes an AI-assisted starter API and database layer extending my Angular learning exercise. The frontend build can be verified independently; the full stack should be run with the setup above before being presented as a production system.
+The code started as my Angular inventory learning exercise and was extended into a full stack portfolio MVP with AI assistance. See the source and CI checks for the implemented scope.
