@@ -8,7 +8,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      DatabasePath: ${{ runner.temp }}/pharmacy-ci.db
+      DatabasePath: /tmp/pharmacy-ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
