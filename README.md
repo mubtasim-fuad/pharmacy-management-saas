@@ -1,84 +1,49 @@
-# MedLedger — Pharmacy Management SaaS
+# MedLedger — local pharmacy manager
 
-A portfolio MVP for a small pharmacy in Bangladesh. The Angular interface supports a browser-only interactive demo; the ASP.NET Core API and PostgreSQL schema support separate pharmacy accounts with persistent records. **The demo is sample data, not a connected pharmacy service.** Do not enter patient or real business information in it.
+A simple app for keeping a medicine catalog, receiving stock, recording sales, and seeing stock and sales reports. It runs on your own computer. Records are saved in the SQLite file `backend/pharmacy.db`; the API creates it automatically on first run.
 
-## What works
+## Run on Windows
 
-- Create a pharmacy account and sign in when the API is configured. Bearer tokens expire after eight hours; every catalog, transaction and report query is scoped to the account's pharmacy.
-- Add and edit medicines, SKU, selling price and reorder threshold. A new medicine begins with zero stock.
-- Record a purchase with supplier, quantity and unit cost. The transaction increases stock and captures the purchase total.
-- Record a sale with customer, quantity and the price and cost at the time of sale. An atomic conditional update prevents negative stock. The entire transaction rolls back if any line fails.
-- See low stock alerts, recent transactions and reports for 7, 30 or 90 days.
-- Explore those flows in the live frontend without an account. Demo changes persist only in the current browser and can be reset.
+Install [Node.js 24](https://nodejs.org/) and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Then download this repository (GitHub **Code → Download ZIP**) and extract it. Double-click `run-windows.bat` in the extracted folder. It opens an API window and a web window. When the web window says it is ready, visit **http://localhost:4200**.
 
-The API supports up to 50 distinct lines per sale or purchase; the current UI submits one medicine per transaction. This is a portfolio MVP, not a production pharmacy system: it has no batch/expiry tracking, invoice numbering, VAT handling, email verification, password recovery, payment integration, or audit trail for user actions. The demo should not be used for regulated dispensing.
+Keep both windows open while using the app. The first start installs the web packages and can take a minute. On later starts it reuses them. To stop the app, close both windows.
 
-| Layer | Stack |
-| --- | --- |
-| Web | Angular 22, TypeScript, signals, reactive forms |
-| API | ASP.NET Core 10, EF Core, JWT authentication |
-| Database | PostgreSQL 17 |
-| CI | GitHub Actions: Angular and .NET builds plus account/stock smoke test |
+## Run in two terminals (Windows, macOS, or Linux)
 
-## Run the full stack locally
+Install Node.js 24 and the .NET 10 SDK. In the first terminal:
 
-Requirements: Node.js 24, .NET 10 SDK, Docker Compose (or PostgreSQL 17).
-
-```bash
-docker compose up -d db
+```sh
 cd backend
-export ConnectionStrings__PharmacyDatabase='Host=localhost;Port=5432;Database=pharmacy_saas;Username=pharmacy;Password=pharmacy_dev'
-export JWT__Key='replace-this-with-a-long-random-secret-at-least-32-characters'
-export Cors__AllowedOrigins='http://localhost:4200'
 dotnet run
 ```
 
-In another terminal:
+In a second terminal from the repository root:
 
-```bash
+```sh
 cd frontend
 npm ci
 npm start
 ```
 
-Open `http://localhost:4200`. Choose **Create pharmacy** to use the persistent API or **Open interactive demo** for sample data. Health endpoint: `http://localhost:5075/health`. For PowerShell, replace `export KEY=value` with `$env:KEY='value'`.
+Open **http://localhost:4200**. On later runs, `npm start` is enough. The API health check is at **http://localhost:5075/health**. If you opened the page before the API was ready, use **Retry**.
 
-The Docker entrypoint runs `001_initial.sql` and `002_transactions_and_accounts.sql` on a **new** database volume. If you already created a volume from the earlier inventory MVP, run the upgrade manually from the repository root: `PGPASSWORD=pharmacy_dev psql -h localhost -U pharmacy -d pharmacy_saas -f database/002_transactions_and_accounts.sql`. See [database/README.md](database/README.md) for existing records.
+## Use
 
-## API routes
+1. Add a medicine with a selling price and reorder level. Its stock starts at zero.
+2. Record a purchase to add quantity and set the current unit cost.
+3. Record a sale to deduct quantity. The API rejects a sale if there is not enough stock.
+4. See low stock alerts, recent transactions, and 7/30/90-day reports.
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/register`, `/api/auth/login` | Pharmacy account and token |
-| GET, POST | `/api/medicines` | Catalog (protected) |
-| PUT | `/api/medicines/{id}` | Edit product information (protected) |
-| GET, POST | `/api/purchases` | Recent purchases / receive stock (protected) |
-| GET, POST | `/api/sales` | Recent sales / deduct stock (protected) |
-| GET | `/api/reports/summary?days=30` | Period totals and inventory health (protected) |
-| GET | `/health` | Database connectivity |
+There is one local workspace, without accounts or passwords. Each purchase and sale form records one medicine at a time. SKU is optional but must be unique if entered. Amounts are in Bangladeshi taka.
 
-Requests to protected routes need `Authorization: Bearer <token>`. Example payloads:
+Your data stays in `backend/pharmacy.db`. Back up that file while the API is **closed**; restoring it restores your records. Deleting it while the API is closed starts a fresh workspace on next launch. The file is ignored by Git.
 
-```json
-{"name":"Paracetamol 500 mg","sku":"P500","salePrice":5.00,"reorderLevel":10}
-{"supplier":"Supplier A","items":[{"medicineId":1,"quantity":20,"unitCost":3.00}]}
-{"customer":"Walk-in","items":[{"medicineId":1,"quantity":2}]}
-```
+This is an inventory and sales MVP for local use, not a regulated dispensing system. It does not track batches, expiry dates, prescriptions, taxes, or audit logs. It has no login, so do not expose port 5075 to other computers or enter patient details.
 
-## Deploy
+## Development
 
-The static Angular frontend and the Dockerized .NET API are separate services. The frontend can be deployed on Vercel with **Root Directory `frontend`**; its `vercel.json` sets the build and output paths. With `frontend/public/config.js` left empty, the site is an explicitly labeled browser demo.
+- `frontend/`: Angular 22 interface
+- `backend/`: ASP.NET Core 10 API and EF Core SQLite storage
+- `scripts/smoke_test.py`: API workflow check used by GitHub Actions
 
-To enable real accounts, provision PostgreSQL and a host that runs `backend/Dockerfile` with the **repository root** as Docker build context. Apply `database/001_initial.sql`, then `database/002_transactions_and_accounts.sql` once to the database. Set `ConnectionStrings__PharmacyDatabase`, a random `JWT__Key` of at least 32 bytes, and `Cors__AllowedOrigins=https://YOUR-FRONTEND-DOMAIN`. Use TLS for both services. Replace `window.PHARMACY_API_URL` in `frontend/public/config.js` with the HTTPS API origin (no trailing slash) and redeploy the frontend. Never put database credentials or the JWT signing key in the frontend or repository.
-
-The CI workflow builds both layers and exercises tenant isolation, a purchase, a sale, an insufficient stock rollback and report totals against disposable PostgreSQL. The frontend build can be run locally with `npm ci && npm run build` from `frontend/`.
-
-## Repository layout
-
-- `frontend/` — Angular app and Vercel configuration
-- `backend/` — ASP.NET Core API and Dockerfile
-- `database/` — versioned PostgreSQL scripts
-- `scripts/smoke_test.py` — API integration smoke test used by CI
-- `screenshots/` — interface screenshots
-
-The code started as my Angular inventory learning exercise and was extended into a full stack portfolio MVP with AI assistance. See the source and CI checks for the implemented scope.
+To run the frontend build: `cd frontend && npm ci && npm run build`. The database path can be changed by setting the `DatabasePath` environment variable before starting the API; relative paths resolve from the API's working directory.

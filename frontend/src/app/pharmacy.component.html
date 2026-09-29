@@ -1,35 +1,6 @@
-@if (mode() === 'none') {
-  <main class="welcome">
-    <div class="welcome-info">
-      <div class="logo"><span class="logo-mark">✚</span><strong>MedLedger</strong></div>
-      <div class="welcome-copy"><p class="eyebrow light">PHARMACY OPERATIONS</p><h1>Every item accounted for.</h1><p>Keep medicine stock, purchasing and sales in one clear workspace.</p></div>
-      <div class="welcome-steps"><span>01 &nbsp; Add medicines</span><span>02 &nbsp; Receive stock</span><span>03 &nbsp; Record sales</span></div>
-      <small>Portfolio MVP · Built with Angular, ASP.NET Core and PostgreSQL</small>
-    </div>
-    <div class="welcome-form">
-      <div class="auth-card"><p class="eyebrow">EXPLORE THE WORKSPACE</p><h2>Pharmacy management, simplified.</h2>
-        <p>Open an interactive sample pharmacy. Demo changes stay in this browser and can be reset at any time.</p>
-        <button class="primary wide" type="button" (click)="startDemo()">Open interactive demo</button>
-        @if (apiAvailable) {
-          <div class="divider"><span>or use your own workspace</span></div>
-          <div class="auth-tabs"><button type="button" [class.selected]="authTab() === 'login'" (click)="authTab.set('login'); error.set('')">Sign in</button><button type="button" [class.selected]="authTab() === 'register'" (click)="authTab.set('register'); error.set('')">Create pharmacy</button></div>
-          <form [formGroup]="authForm" (ngSubmit)="submitAuth()">
-            @if (authTab() === 'register') { <label>Pharmacy name<input formControlName="pharmacyName" maxlength="160" autocomplete="organization" required></label> }
-            <label>Email<input type="email" formControlName="email" autocomplete="email" required></label>
-            <label>Password<input type="password" formControlName="password" [attr.autocomplete]="authTab() === 'login' ? 'current-password' : 'new-password'" required></label>
-            @if (authTab() === 'register') { <small>Use at least 12 characters.</small> }
-            <button class="secondary wide" type="submit" [disabled]="authForm.invalid || busy()">{{ busy() ? 'Please wait…' : authTab() === 'login' ? 'Sign in' : 'Create workspace' }}</button>
-          </form>
-        }
-        @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
-      </div>
-      <p class="disclaimer">For demonstration and portfolio use. Do not enter patient information.</p>
-    </div>
-  </main>
-} @else {
   <div class="shell">
     <aside class="sidebar"><div class="logo"><span class="logo-mark">✚</span><strong>MedLedger</strong></div>
-      <div class="workspace-name"><small>WORKSPACE</small><strong>{{ pharmacyName() }}</strong><span>{{ mode() === 'demo' ? 'Browser demo' : email() }}</span></div>
+      <div class="workspace-name"><small>WORKSPACE</small><strong>My pharmacy</strong><span>Saved on this computer</span></div>
       <nav aria-label="Main navigation">
         <button type="button" [class.active]="view() === 'overview'" (click)="show('overview')"><span>◫</span> Overview</button>
         <button type="button" [class.active]="view() === 'medicines'" (click)="show('medicines')"><span>▦</span> Medicines</button>
@@ -37,12 +8,12 @@
         <button type="button" [class.active]="view() === 'sales'" (click)="show('sales')"><span>↑</span> Sales</button>
         <button type="button" [class.active]="view() === 'reports'" (click)="show('reports')"><span>▥</span> Reports</button>
       </nav>
-      <div class="side-footer"><span class="mode-dot"></span>{{ mode() === 'demo' ? 'Local sample data' : 'Connected workspace' }}<button type="button" (click)="signOut()">{{ mode() === 'demo' ? 'Exit demo' : 'Sign out' }}</button></div>
+      <div class="side-footer"><span class="mode-dot"></span>Local workspace<br><button type="button" (click)="refresh()">Refresh data</button></div>
     </aside>
-    <div class="main-area"><header class="topbar"><div><span class="crumb">PHARMACY / {{ view().toUpperCase() }}</span><h1>@switch (view()) { @case ('overview') { Overview } @case ('medicines') { Medicines } @case ('purchase') { Purchasing } @case ('sales') { Sales } @case ('reports') { Reports } }</h1></div><span class="date">{{ date(today) }}</span><button class="mobile-exit text-button" type="button" (click)="signOut()">{{ mode() === 'demo' ? 'Exit demo' : 'Sign out' }}</button></header>
+    <div class="main-area"><header class="topbar"><div><span class="crumb">PHARMACY / {{ view().toUpperCase() }}</span><h1>@switch (view()) { @case ('overview') { Overview } @case ('medicines') { Medicines } @case ('purchase') { Purchasing } @case ('sales') { Sales } @case ('reports') { Reports } }</h1></div><span class="date">{{ date(today) }}</span><button class="mobile-exit text-button" type="button" (click)="refresh()">Refresh data</button></header>
       <main class="main-content">
-        @if (mode() === 'demo') { <div class="demo-banner" role="status"><strong>Interactive demo</strong><span>Changes are saved only in this browser. Do not enter real pharmacy or patient data.</span><button type="button" (click)="resetDemo()">Reset sample</button></div> }
-        @if (error()) { <div class="message error" role="alert">{{ error() }}</div> }
+        @if (loading()) { <div class="message success" role="status">Loading your records…</div> }
+        @if (error()) { <div class="message error" role="alert">{{ error() }} <button class="text-button" type="button" (click)="refresh()">Retry</button></div> }
         @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
 
         @if (view() === 'overview') {
@@ -81,8 +52,7 @@
           <section class="stats report-stats"><div class="stat"><span>Sales revenue</span><strong>{{ money(report()?.revenue || 0) }}</strong><small>{{ report()?.salesCount || 0 }} sales</small></div><div class="stat"><span>Purchase spend</span><strong>{{ money(report()?.purchasesTotal || 0) }}</strong><small>Recorded purchases</small></div><div class="stat"><span>Gross margin estimate</span><strong>{{ money((report()?.revenue || 0) - (report()?.costOfGoods || 0)) }}</strong><small>Revenue minus recorded unit costs</small></div><div class="stat"><span>Stock at cost</span><strong>{{ money(report()?.stockValue || 0) }}</strong><small>{{ report()?.unitsInStock || 0 }} units available</small></div></section>
           <div class="two-column"><section class="card"><p class="eyebrow">STOCK HEALTH</p><h3>{{ report()?.lowStock || 0 }} medicines need attention</h3><p class="muted">Reorder alerts use each medicine’s own threshold. A product with zero stock is included.</p><button class="secondary" type="button" (click)="show('medicines')">Review medicines</button></section><section class="card"><p class="eyebrow">HOW THIS IS CALCULATED</p><h3>Clear numbers, useful decisions</h3><p class="muted">Revenue and purchases use the selected period. Stock value uses the latest purchase cost per medicine. Gross margin uses recorded costs at the time of sale in the API.</p></section></div>
         }
-        <footer>MedLedger · Pharmacy Management SaaS portfolio MVP · Bangladesh · {{ mode() === 'demo' ? 'Local demo' : 'Private pharmacy workspace' }}</footer>
+        <footer>MedLedger · Local pharmacy workspace · Data is stored on this computer</footer>
       </main>
     </div>
   </div>
-}

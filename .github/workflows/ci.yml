@@ -7,25 +7,8 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: pharmacy_saas
-          POSTGRES_USER: pharmacy
-          POSTGRES_PASSWORD: pharmacy_dev
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U pharmacy -d pharmacy_saas"
-          --health-interval 10s --health-timeout 5s --health-retries 5
     env:
-      PGHOST: localhost
-      PGUSER: pharmacy
-      PGPASSWORD: pharmacy_dev
-      PGDATABASE: pharmacy_saas
-      ConnectionStrings__PharmacyDatabase: Host=localhost;Port=5432;Database=pharmacy_saas;Username=pharmacy;Password=pharmacy_dev
-      JWT__Key: ci-only-replace-me-in-real-hosting-32-characters-minimum
-      Cors__AllowedOrigins: http://localhost:4200
+      DatabasePath: ${{ runner.temp }}/pharmacy-ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -36,16 +19,14 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Apply database scripts
-        run: |
-          psql -f database/001_initial.sql
-          psql -f database/002_transactions_and_accounts.sql
       - name: Build API
         run: dotnet build backend/Pharmacy.Api.csproj --configuration Release
       - name: Build frontend
         working-directory: frontend
         run: npm ci && npm run build
-      - name: Exercise account isolation and stock transactions
+      - name: Exercise inventory, purchases, sales and reports
         run: |
           dotnet run --no-build --configuration Release --project backend/Pharmacy.Api.csproj --urls http://127.0.0.1:5075 > /tmp/pharmacy-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill $api_pid 2>/dev/null || true' EXIT
           python3 scripts/smoke_test.py
