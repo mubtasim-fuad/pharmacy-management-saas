@@ -110,8 +110,11 @@ app.MapPost("/api/auth/login", async Task<IResult> (LoginRequest request, Pharma
 
 var api = app.MapGroup("/api").RequireAuthorization();
 api.MapGet("/medicines", async (HttpContext context, PharmacyDbContext db, CancellationToken ct) =>
-    (await db.Medicines.AsNoTracking().Where(m => m.TenantId == Tenant(context) && m.Active)
-        .OrderBy(m => m.Name).ToListAsync(ct)).Select(ViewMedicine));
+{
+    var tenantId = Tenant(context);
+    return (await db.Medicines.AsNoTracking().Where(m => m.TenantId == tenantId && m.Active)
+        .OrderBy(m => m.Name).ToListAsync(ct)).Select(ViewMedicine);
+});
 
 api.MapPost("/medicines", async Task<IResult> (MedicineRequest request, HttpContext context,
     PharmacyDbContext db, CancellationToken ct) =>
@@ -137,7 +140,8 @@ api.MapPut("/medicines/{id:long}", async Task<IResult> (long id, MedicineRequest
     if (string.IsNullOrWhiteSpace(name) || name.Length > 160 || sku.Length > 64 ||
         request.ReorderLevel < 0 || request.ReorderLevel > 1_000_000 || !ValidMoney(request.SalePrice))
         return Results.BadRequest(new { error = "Check the name, SKU, price and reorder level." });
-    var medicine = await db.Medicines.SingleOrDefaultAsync(m => m.Id == id && m.TenantId == Tenant(context) && m.Active, ct);
+    var tenantId = Tenant(context);
+    var medicine = await db.Medicines.SingleOrDefaultAsync(m => m.Id == id && m.TenantId == tenantId && m.Active, ct);
     if (medicine is null) return Results.NotFound();
     medicine.Name = name; medicine.Sku = sku; medicine.SalePrice = request.SalePrice;
     medicine.ReorderLevel = request.ReorderLevel;
@@ -214,13 +218,19 @@ api.MapPost("/sales", async Task<IResult> (SaleRequest request, HttpContext cont
 });
 
 api.MapGet("/sales", async (HttpContext context, PharmacyDbContext db, CancellationToken ct) =>
-    (await db.Sales.AsNoTracking().Include(s => s.Items)
-        .Where(s => s.TenantId == Tenant(context)).OrderByDescending(s => s.CreatedAtUtc)
-        .ThenByDescending(s => s.Id).Take(50).ToListAsync(ct)).Select(ViewSale));
+{
+    var tenantId = Tenant(context);
+    return (await db.Sales.AsNoTracking().Include(s => s.Items)
+        .Where(s => s.TenantId == tenantId).OrderByDescending(s => s.CreatedAtUtc)
+        .ThenByDescending(s => s.Id).Take(50).ToListAsync(ct)).Select(ViewSale);
+});
 api.MapGet("/purchases", async (HttpContext context, PharmacyDbContext db, CancellationToken ct) =>
-    (await db.Purchases.AsNoTracking().Include(p => p.Items)
-        .Where(p => p.TenantId == Tenant(context)).OrderByDescending(p => p.CreatedAtUtc)
-        .ThenByDescending(p => p.Id).Take(50).ToListAsync(ct)).Select(ViewPurchase));
+{
+    var tenantId = Tenant(context);
+    return (await db.Purchases.AsNoTracking().Include(p => p.Items)
+        .Where(p => p.TenantId == tenantId).OrderByDescending(p => p.CreatedAtUtc)
+        .ThenByDescending(p => p.Id).Take(50).ToListAsync(ct)).Select(ViewPurchase);
+});
 
 api.MapGet("/reports/summary", async (int? days, HttpContext context, PharmacyDbContext db, CancellationToken ct) =>
 {
