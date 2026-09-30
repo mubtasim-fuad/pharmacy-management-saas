@@ -16,6 +16,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=api-build /publish ./
 COPY --from=web-build /src/frontend/dist/pharmacy/browser ./wwwroot
+ENV DatabasePath=/tmp/pharmacy.db
 USER $APP_UID
 EXPOSE 10000
 CMD ["sh", "-c", "ASPNETCORE_URLS=http://0.0.0.0:${PORT:-10000} exec dotnet Pharmacy.Api.dll"]
