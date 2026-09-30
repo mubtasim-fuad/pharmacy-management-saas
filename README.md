@@ -44,6 +44,8 @@ This is an inventory and sales MVP for local use, not a regulated dispensing sys
 
 `render.yaml` and the root `Dockerfile` package the Angular interface and the API as **one** Render web service. The free demo starts with sample medicines, and the browser calls the API at the same site address. The local two-terminal setup above still works.
 
+[Deploy the free demo to Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fmubtasim-fuad%2Fpharmacy-management-saas) using the reviewed `render.yaml` Blueprint. This creates a free service named `medledger-demo`; later code changes can be deployed manually from Render.
+
 Render's free web services erase local files when they sleep or restart. **The online demo is temporary and shared among visitors.** Changes made there do not sync with `backend/pharmacy.db` on your PC. Do not enter real customer, patient, or business information. A persistent online pharmacy would need access control and durable storage before it could be used for real records.
 
 ## Development
