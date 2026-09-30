@@ -35,6 +35,6 @@ jobs:
       - name: Exercise packaged site and API
         run: |
           docker run -d --name medledger-ci -p 5076:10000 medledger-demo
-          trap 'docker rm -f medledger-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker logs medledger-ci 2>&1; docker rm -f medledger-ci >/dev/null 2>&1 || true' EXIT
           BASE_URL=http://127.0.0.1:5076 python3 scripts/smoke_test.py
           curl --fail --silent http://127.0.0.1:5076/ | grep -q '<pharmacy-app>'

@@ -23,7 +23,7 @@ for _ in range(40):
     try:
         if call('GET', '/health')[0] == 200:
             break
-    except (urllib.error.URLError, TimeoutError):
+    except OSError:
         time.sleep(1)
 else:
     raise AssertionError('API did not become healthy')
