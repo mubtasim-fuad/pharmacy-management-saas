@@ -1,6 +1,6 @@
   <div class="shell">
     <aside class="sidebar"><div class="logo"><span class="logo-mark">✚</span><strong>MedLedger</strong></div>
-      <div class="workspace-name"><small>WORKSPACE</small><strong>My pharmacy</strong><span>Saved on this computer</span></div>
+      <div class="workspace-name"><small>WORKSPACE</small><strong>{{ onlineDemo ? 'Public demo' : 'My pharmacy' }}</strong><span>{{ onlineDemo ? 'Temporary shared data' : 'Saved on this computer' }}</span></div>
       <nav aria-label="Main navigation">
         <button type="button" [class.active]="view() === 'overview'" (click)="show('overview')"><span>◫</span> Overview</button>
         <button type="button" [class.active]="view() === 'medicines'" (click)="show('medicines')"><span>▦</span> Medicines</button>
@@ -8,10 +8,11 @@
         <button type="button" [class.active]="view() === 'sales'" (click)="show('sales')"><span>↑</span> Sales</button>
         <button type="button" [class.active]="view() === 'reports'" (click)="show('reports')"><span>▥</span> Reports</button>
       </nav>
-      <div class="side-footer"><span class="mode-dot"></span>Local workspace<br><button type="button" (click)="refresh()">Refresh data</button></div>
+      <div class="side-footer"><span class="mode-dot"></span>{{ onlineDemo ? 'Portfolio demo' : 'Local workspace' }}<br><button type="button" (click)="refresh()">Refresh data</button></div>
     </aside>
     <div class="main-area"><header class="topbar"><div><span class="crumb">PHARMACY / {{ view().toUpperCase() }}</span><h1>@switch (view()) { @case ('overview') { Overview } @case ('medicines') { Medicines } @case ('purchase') { Purchasing } @case ('sales') { Sales } @case ('reports') { Reports } }</h1></div><span class="date">{{ date(today) }}</span><button class="mobile-exit text-button" type="button" (click)="refresh()">Refresh data</button></header>
       <main class="main-content">
+        @if (onlineDemo) { <div class="demo-banner" role="status"><strong>Public demo</strong><span>Changes are shared with other visitors and reset when the free service sleeps or restarts. Use sample data only.</span></div> }
         @if (loading()) { <div class="message success" role="status">Loading your records…</div> }
         @if (error()) { <div class="message error" role="alert">{{ error() }} <button class="text-button" type="button" (click)="refresh()">Retry</button></div> }
         @if (notice()) { <div class="message success" role="status">{{ notice() }}</div> }
@@ -52,7 +53,7 @@
           <section class="stats report-stats"><div class="stat"><span>Sales revenue</span><strong>{{ money(report()?.revenue || 0) }}</strong><small>{{ report()?.salesCount || 0 }} sales</small></div><div class="stat"><span>Purchase spend</span><strong>{{ money(report()?.purchasesTotal || 0) }}</strong><small>Recorded purchases</small></div><div class="stat"><span>Gross margin estimate</span><strong>{{ money((report()?.revenue || 0) - (report()?.costOfGoods || 0)) }}</strong><small>Revenue minus recorded unit costs</small></div><div class="stat"><span>Stock at cost</span><strong>{{ money(report()?.stockValue || 0) }}</strong><small>{{ report()?.unitsInStock || 0 }} units available</small></div></section>
           <div class="two-column"><section class="card"><p class="eyebrow">STOCK HEALTH</p><h3>{{ report()?.lowStock || 0 }} medicines need attention</h3><p class="muted">Reorder alerts use each medicine’s own threshold. A product with zero stock is included.</p><button class="secondary" type="button" (click)="show('medicines')">Review medicines</button></section><section class="card"><p class="eyebrow">HOW THIS IS CALCULATED</p><h3>Clear numbers, useful decisions</h3><p class="muted">Revenue and purchases use the selected period. Stock value uses the latest purchase cost per medicine. Gross margin uses recorded costs at the time of sale in the API.</p></section></div>
         }
-        <footer>MedLedger · Local pharmacy workspace · Data is stored on this computer</footer>
+        <footer>MedLedger · {{ onlineDemo ? 'Temporary public demo' : 'Local pharmacy workspace · Data is stored on this computer' }}</footer>
       </main>
     </div>
   </div>

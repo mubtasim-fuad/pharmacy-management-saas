@@ -15,8 +15,21 @@ builder.Services.AddCors(options => options.AddPolicy("LocalWeb", policy => poli
 
 var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
-    await scope.ServiceProvider.GetRequiredService<PharmacyDbContext>().Database.EnsureCreatedAsync();
+{
+    var db = scope.ServiceProvider.GetRequiredService<PharmacyDbContext>();
+    await db.Database.EnsureCreatedAsync();
+    if (app.Configuration.GetValue<bool>("DemoMode") && !await db.Medicines.AnyAsync())
+    {
+        db.Medicines.AddRange(
+            new Medicine { Name = "Paracetamol 500 mg", Sku = "MED-101", Stock = 42, ReorderLevel = 10, SalePrice = 2.50m, CostPrice = 1.80m },
+            new Medicine { Name = "Cetirizine 10 mg", Sku = "MED-102", Stock = 8, ReorderLevel = 10, SalePrice = 5m, CostPrice = 3.50m },
+            new Medicine { Name = "Oral Rehydration Salts", Sku = "MED-103", Stock = 3, ReorderLevel = 8, SalePrice = 12m, CostPrice = 8m });
+        await db.SaveChangesAsync();
+    }
+}
 app.UseCors("LocalWeb");
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.MapGet("/health", async (PharmacyDbContext db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct) ? Results.Ok(new { status = "healthy" }) : Results.StatusCode(503));
 
@@ -156,6 +169,7 @@ api.MapGet("/reports/summary", async (int? days, PharmacyDbContext db, Cancellat
     };
 });
 
+app.MapFallbackToFile("index.html");
 app.Run();
 
 record MedicineRequest(string? Name, string? Sku, decimal SalePrice, int ReorderLevel);

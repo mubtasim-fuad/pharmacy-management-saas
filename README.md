@@ -40,6 +40,12 @@ Your data stays in `backend/pharmacy.db`. Back up that file while the API is **c
 
 This is an inventory and sales MVP for local use, not a regulated dispensing system. It does not track batches, expiry dates, prescriptions, taxes, or audit logs. It has no login, so do not expose port 5075 to other computers or enter patient details.
 
+## Render portfolio demo
+
+`render.yaml` and the root `Dockerfile` package the Angular interface and the API as **one** Render web service. The free demo starts with sample medicines, and the browser calls the API at the same site address. The local two-terminal setup above still works.
+
+Render's free web services erase local files when they sleep or restart. **The online demo is temporary and shared among visitors.** Changes made there do not sync with `backend/pharmacy.db` on your PC. Do not enter real customer, patient, or business information. A persistent online pharmacy would need access control and durable storage before it could be used for real records.
+
 ## Development
 
 - `frontend/`: Angular 22 interface

@@ -10,11 +10,14 @@ interface Sale { id: number; customer: string; total: number; createdAtUtc: stri
 interface Purchase { id: number; supplier: string; total: number; createdAtUtc: string; items: Line[]; }
 interface Summary { days: number; medicines: number; unitsInStock: number; lowStock: number; stockValue: number; salesCount: number; revenue: number; costOfGoods: number; purchasesTotal: number; }
 
-const api = 'http://localhost:5075';
+const localDev = location.port === '4200' &&
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+const api = localDev ? 'http://localhost:5075' : '';
 
 @Component({ selector: 'pharmacy-app', standalone: true, imports: [ReactiveFormsModule], templateUrl: './pharmacy.component.html' })
 export class PharmacyComponent {
   private readonly http = inject(HttpClient);
+  readonly onlineDemo = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
   readonly today = new Date().toISOString();
   readonly view = signal<View>('overview');
   readonly medicines = signal<Medicine[]>([]);
@@ -64,7 +67,9 @@ export class PharmacyComponent {
   refresh() { this.error.set(''); this.notice.set(''); this.reload(); }
   private message(err: unknown, fallback: string) {
     if (err instanceof HttpErrorResponse) {
-      if (err.status === 0) return 'Cannot connect to the API. Start it with dotnet run in the backend folder, then select Retry.';
+      if (err.status === 0) return this.onlineDemo
+        ? 'The demo is waking up or unavailable. Wait a minute, then select Retry.'
+        : 'Cannot connect to the API. Start it with dotnet run in the backend folder, then select Retry.';
       return typeof err.error?.error === 'string' ? err.error.error : fallback;
     }
     return fallback;

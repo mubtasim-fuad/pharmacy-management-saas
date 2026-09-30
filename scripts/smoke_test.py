@@ -1,10 +1,11 @@
 """Exercise the local SQLite-backed API in CI."""
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 
-BASE = 'http://127.0.0.1:5075'
+BASE = os.environ.get('BASE_URL', 'http://127.0.0.1:5075')
 
 
 def call(method, path, body=None):

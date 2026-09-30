@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: medledger-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DemoMode
+        value: "true"
+      - key: DatabasePath
+        value: /tmp/pharmacy-demo.db

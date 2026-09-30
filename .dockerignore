@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/dist
+**/.angular
+**/bin
+**/obj
+*.db
+*.db-wal
+*.db-shm
